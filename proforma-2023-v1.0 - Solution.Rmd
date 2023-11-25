@@ -42,12 +42,10 @@ library(tidyverse)
 library(zoo)
 library(validate)
 library(ggplot2)
-library(geomtextpath)
+
 library(dplyr)
 library(ggpubr)
 library(RColorBrewer)
-library(vcdExtra)
-library(hrbrthemes)
 ```
 
 # 1. Organise and clean the data
@@ -515,15 +513,9 @@ Now, for numerical variables,
 
 ```{r}
 #correlation between numerical independent variables with price 
-cor(cars.df$year, cars.df$price)
-cor(cars.df$mileage, cars.df$price)
-cor(cars.df$engine_size, cars.df$price)
-cor(cars.df$min_mpg, cars.df$price)
-cor(cars.df$max_mpg, cars.df$price)
+cor(cars.df[, c("price", "engine_size", "year", "mileage", "min_mpg", "max_mpg")])
 ```
-*year* and *engine_size* are positively correlated with price while *mileage*, *min_mpg* and *max_mpg* have negative correlation. 
-
-
+Among the attributes, highest correlation exists between *min_mpg* and *max_mpg* with positive value of 0.74. The lowest correlation is almost none, 0.0002 between *max_mpg* and *year*.
 
 ### 2.2.2 Graphical Exploration
 
@@ -567,9 +559,7 @@ barplot(table(cars.df$heated_seats), ylab = "Frequency", xlab = "Heated Seats")
 
 #### 2.2.2.2 Multi-Variant Plots
 
-```{r}
-colnames(cars.df)
-```
+
 ```{r}
 #Visualizing relation between numerical dependent variable and numerical independent variables. 
 
@@ -613,7 +603,7 @@ My goal here is to visualize relation of numerical dependent variable with other
 To summarize the plots from section 2.2, I have devised set of questions to streamline the summary of my findings. 
 
 **Question 1. Inquire into the distributions state the outliers (if exist). **
-By looking at the graphs, *mileage*, *min_mpg* and *max_mpg* seem to have outliers. 
+By looking at the graphs, *mileage*, *min_mpg*, *max_mpg*, *automatic_transmission* and *third_row_seating* seem to have outliers. 
 
 **Question 2. While exploring the variables, are there any surprising values? **
 From my computations and visualizations, I don’t seem to find any abnormal values in data anymore. 
@@ -657,7 +647,27 @@ As p-value is very small, it can safely be deduced that *max_mpg* has effect on 
 
 ## 2.4 Additional insights and issues
 
-From Exploratory data anlysis before, can qualities of expensive cars be defined? 
+While performing EDA, another insight that came to my attention was to see if qualities of expensive cars can be defined from provided data?
+To answer the question, I will refer to the correlation matrix computed in section 2.2.1. With *price*, highly correlated variables are *mileage* (-0.62) and *year* (0.60). 
+To see the effect of categorical values on price, I have used ANOVA model. 
+
+Except fuel, all the values are significant. 
+
+```{r}
+summary(aov(cars.df$price~cars.df$brand))
+summary(aov(cars.df$price~cars.df$automatic_transmission))
+summary(aov(cars.df$price~cars.df$fuel))
+summary(aov(cars.df$price~cars.df$drivetrain))
+summary(aov(cars.df$price~cars.df$damaged))
+summary(aov(cars.df$price~cars.df$first_owner))
+summary(aov(cars.df$price~cars.df$navigation_system))
+summary(aov(cars.df$price~cars.df$bluetooth))
+summary(aov(cars.df$price~cars.df$third_row_seating))
+summary(aov(cars.df$price~cars.df$heated_seats))
+```
+
+Most expensive cars have low mileage with latest production year.  Choosing the expensive *brand* with *automatic transmission*, *having first owner*, *bluetooth*, *heated seating*, *no damage* and *navigation system* directly increases the car’s cost.   
+
 *Highlight potential further issues or insights uncovered in 2.2. This might include follow up to findings from your initial EDA. We accept that the boundary between 2.2 and 2.3 is somewhat arbitrary so use your judgement and maximise good structure and readability. (5 marks) (Max 200 words)*
 
 # 3. Modelling
