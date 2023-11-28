@@ -42,10 +42,12 @@ library(tidyverse)
 library(zoo)
 library(validate)
 library(ggplot2)
-
+library(tree)
 library(dplyr)
 library(ggpubr)
 library(RColorBrewer)
+library(vcdExtra)
+library(MASS)
 ```
 
 # 1. Organise and clean the data
@@ -557,7 +559,7 @@ barplot(table(cars.df$third_row_seating), ylab = "Frequency", xlab = "Third Row 
 barplot(table(cars.df$heated_seats), ylab = "Frequency", xlab = "Heated Seats")
 ```
 
-#### 2.2.2.2 Multi-Variant Plots
+#### 2.2.2.2 Multi-Variate Plots
 
 
 ```{r}
@@ -672,25 +674,224 @@ Most expensive cars have low mileage with latest production year.  Choosing the 
 
 # 3. Modelling
 
+
 ## 3.1 Explain your analysis plan
+
+Numerical summaries, categorical displays and hypothesis tests from previous sections have depicted some form of analysis. The goal in this section is to develop an optimal model for cars *prices*. 
+
+  Identification and imputation of missing values directly affect the model. First section deals with data cleaning, exposing plenty of missing values, invalid values, spelling errors and unknown values. I have made an attempt to fix these issues based on provided reasoning. The Exploratory data analysis is performed keeping in view *price* as a dependent variable and developing its understanding relating to other independent variables. Preliminary observations show that most of cars.df attributes are correlated with *price* except *fuel*, *max_mpg*, *min_mpg* and *engine_size* who have comparatively lower impact on cars’ *prices*. 
+  
+  To design model for given data, the explanatory variables are mix of both categorical and numerical types while the dependent variable is continuous numerical. *ANCOVA* deals with these kinds of variables. I will use *step()* function to achieve minimal adequate model from maximal. Before modeling, it is important to make sure that dependent variable is free of errors, normality issues and has no heteroscedasticy. The graph in EDA shows that *price* complies with said expectations.
+  
+  Section 3.2 has implementation of described model. The results are discussed in section 3.3. The improvements upon those results are part of section 3.4. 
 
 *The aim of the analysis is to model used car prices. Outline and justify an analysis plan to address the aim that incorporates/references any findings from the data cleaning (1.4) and EDA (2.3, 2.4) (5 marks). (Max 200 words)*
 
 ## 3.2 Build a model for car price
 
-*Use R to build a suitable model to model used car prices on your data (dependent variable is price) (5 marks). (Max 100 words)*\ *NB Submissions where suitable models do not have good fit due to the nature of the data will not be penalised.*
+Building ANCOVA model for price to summarize used cars’ prices. 
+
+```{r}
+#Maximal Model for pricing of used cars 
+
+ancova.price<-lm(cars.df$price~cars.df$brand+cars.df$year+cars.df$mileage+cars.df$engine_size+cars.df$automatic_transmission+cars.df$fuel+cars.df$drivetrain+cars.df$min_mpg+cars.df$max_mpg+cars.df$damaged+cars.df$first_owner+cars.df$navigation_system+cars.df$bluetooth+cars.df$third_row_seating+cars.df$heated_seats)
+summary(ancova.price)
+```
+
+The output shows the influence of each level on car’s price. The significant and non-significant attributes are depicted in the summary. 
+
+Overall, the model is significant. $r^2$ value is relatively closer to 1, portraying that *price* is a substantial coefficient for developing this model. F-value 29.4 indicates that difference in mean values is greater among variables.
+
+For final steps, 
+
+```{r}
+plot(ancova.price)
+```
+Overall, the plots do not raise any serious concerns. 
+
+
+Data seems of have few non-significant values. To improve upon results, I will use *step()* function to achieve minimal adequate model.
+
+```{r}
+ancova.price.min <- step(ancova.price)
+summary(ancova.price.min)
+```
+
+
+
+```{r}
+plot(ancova.price.min)
+```
+
+These results are discussed in next section.
 
 ## 3.3 Critique model using relevant diagnostics
 
-*Offer an interpretation of the model, goodness of fit and graphical diagnostics (5 marks) for the model built in 3.2. Explain any potential weaknesses (5 marks). (Max 200 words)*
+####Maximal Adequate model summary
+The result summarizes the positive and negative correlation of all levels (total 42) present in the data with the intercept. 
+Looking at the p-values of coefficients, only a few among them are significant (p-values < 0.05). It is worth noticing that a huge part of data (non-significant instances) failed to explain the variability against response variable. 
+Nevertheless, as per summary stats, the overall model is *significant* evident by the p-value of 2.2e-16. The value of $r^2$ is more than 70%, so model is relatively good at describing variations in response variable. For maximal model, F-value turned out to be 29.34 which shows that mean variation is high among participating variables. 
+
+####Diagnostic plots 
+
+Keeping up with visualizations, these plots do not show grave concerns.  As a mild criticism, I feel like residual vs fitted plot has more concentration and spread of scatter on right side but I don’t see much distinguishable pattern to be categorized as heteroscedasticity. QQ residual plot shows a straight line. For scale-location plot, there is little concertation towards the right but it doesn’t show any particular pattern. 
+
+####Minimal Adequate Model Summary 
+There is not great deal of improvement in the results. Rather the plots and $r^2$  value show that maximal model might be enough. 
+
 
 ## 3.4 Suggest and implement improvements to your model
 
 *Based on the findings in 3.2 and 3.3 articulate and include one possible alternative approach to address the model weaknesses articulated in 3.3. Explain which model (from the ones in 3.2 and 3.4) you propose and why (5 marks). (Max 200 words)*
 
+Though there is not a very distinguishable pattern but one can identify a hint of heteroscedasticity in the plots. 
+
+In order to implement an improvement, I would apply *log transformation*. Log applied to the dependent variable will change the configurations of whole model. 
+
+Applying the transformed response variable on ANCOVA model with maximal approach. 
+
+```{r}
+ancova.price.lg<-lm(log(cars.df$price)~cars.df$brand+cars.df$year+cars.df$mileage+cars.df$engine_size+cars.df$automatic_transmission+cars.df$fuel+cars.df$drivetrain+cars.df$min_mpg+cars.df$max_mpg+cars.df$damaged+cars.df$first_owner+cars.df$navigation_system+cars.df$bluetooth+cars.df$third_row_seating+cars.df$heated_seats)
+summary(ancova.price.lg)
+```
+
+This logarithmic transformation has noticeable impact on results. The summary suggests a significant p-value with 41.91 F-statistic showing that the mean difference between variables is much more than both of previous maximal and minimal models (section 3.2). Another discernible refinement in model is $r^2$. It shows that variations caused in response variable by explanatory variables are now greater than 80%. 
+
+
+```{r}
+#Diagnostics Plot
+plot(ancova.price.lg)
+```
+
+These plots comply with the improvements discussed with summary statistics. The spread of residuals vs fitted plot is pretty much contained. QQ plot, scale-location and leverage plot reflect the improvements made by transformed dependent variable. 
+
+Developing the minimal transformed model 
+
+```{r}
+ancova.price.lg.min <- step(ancova.price.lg)
+summary(ancova.price.lg.min)
+```
+
+Given the statistics, minimal model has the same value of $r^2$. The only difference I can see is increment in F-value statistic (which is 50.7). The more important measure is p-value which remains significant in minimal model too.  
+
+```{r}
+#diagnostics plot for Minimal Model
+plot(ancova.price.lg.min)
+```
+These plots replicate the improvements made by log transformation.
+
 # 4. Modelling another dependent variable
 
 ## 4.1 Model the likelihood of a car being sold by the first owner (using the first_owner variable provided).
+
+The aim of this section is to use categorical response variable (i.e., *first_owner*) against independent variables. 
+Before directly applying the model, lets do some exploratory data analysis to prepare insights. 
+
+## 4.2 EDA Plan, Analysis and summary
+
+The statistical and graphical exploratory analysis for individual variables has been covered in section 2.2. In this subsection, I will be focusing on multi-variate exploration keeping in view the *first_owner* as the dependent variable. 
+
+```{r}
+#Looking at *first_owner*    
+ggplot(cars.df, aes(x=cars.df$first_owner)) + geom_bar()
+```
+Cars sold by first owner are slightly more than others. 
+
+The question I am going to address in this section is *Can I describe the qualities of cars that are being sold by first owner? *
+To look into the answer, I will find relation of independent variables with dependent variable. 
+Statistical interpretation using chisq test to find the correlation values with independent categorical variables
+
+
+```{r}
+#chisq.test for first_owner with following categorical variables 
+
+chisq.test(table(cars.df$brand, cars.df$first_owner), simulate.p.value=TRUE)
+chisq.test(table(cars.df$automatic_transmission, cars.df$first_owner), simulate.p.value=TRUE)
+chisq.test(table(cars.df$fuel, cars.df$first_owner), simulate.p.value=TRUE)
+chisq.test(table(cars.df$drivetrain, cars.df$first_owner), simulate.p.value=TRUE)
+chisq.test(table(cars.df$damaged, cars.df$first_owner), simulate.p.value=TRUE)
+chisq.test(table(cars.df$navigation_system, cars.df$first_owner), simulate.p.value=TRUE)
+chisq.test(table(cars.df$bluetooth, cars.df$first_owner), simulate.p.value=TRUE)
+chisq.test(table(cars.df$third_row_seating, cars.df$first_owner), simulate.p.value=TRUE)
+chisq.test(table(cars.df$heated_seats, cars.df$first_owner), simulate.p.value=TRUE)
+```
+
+According the p-values, *first_owner* is correlated with *brand*, *automatic_transmission*, *damaged* cars, *Bluetooth*, *third_row_seating* and *heated_seats*.  The summary shows that *fuel* and *navigation system* are not affecting the first car ownership.  
+To conceptualize the effect of numerical independent variables with *first_owner*, I have devised boxplots
+
+```{r}
+#Boxplots with independent continuous variable vs First Owner 
+
+ggplot(cars.df, aes(x=year, y=first_owner)) + geom_boxplot(fill="gray") + theme_classic() + labs(title="Box Plot of production year with first owner") 
+ggplot(cars.df, aes(x=mileage, y=first_owner)) + geom_boxplot(fill="gray") + theme_classic() + labs(title="Box Plot of mileage with first owner") 
+ggplot(cars.df, aes(x=engine_size, y=first_owner)) + geom_boxplot(fill="gray") + theme_classic() + labs(title="Box Plot of engine size with first owner") 
+ggplot(cars.df, aes(x=min_mpg, y=first_owner)) + geom_boxplot(fill="gray") + theme_classic() + labs(title="Box Plot of min mpg with first owner") 
+ggplot(cars.df, aes(x=max_mpg, y=first_owner)) + geom_boxplot(fill="gray") + theme_classic() + labs(title="Box Plot of max mpg with first owner") 
+ggplot(cars.df, aes(x=price, y=first_owner)) + geom_boxplot(fill="gray") + theme_classic() + labs(title="Box Plot of price with first owner") 
+```
+There is a noticeable difference in *median* for production *year*, *mileage* and *price* of car by the *first_owner*. There is slight difference with *engine_size*. For *min* and *max_mpg*, medians are exactly at the same point, but the quartiles are at slightly different locations.
+I will use a tree to understand the effect of variables on First Owner in better way. 
+
+```{r}
+cars.tree<-tree(cars.df$first_owner~., data = cars.df)
+plot(cars.tree)
+text(cars.tree)
+```
+
+Top of the tree has year which means it has most impact of all on *first_owner*. 
+To summarize the answer to the question addressed in EDA is yes. By looking at the correlation values and graphs, we can presume that cars sold by first owner are relatively latest (*year* of production), with certain brands, have *automatic_transmission*, *drivetrain*, *Bluetooth*, *third_row_seating* and *heated_seats*. The *damage* to car is also relevant to the first owner.    
+This section provides a brief insight of variables’ individual relation with the *first_owner*. Next section focuses on developing a complete model to simultaneously assess all the instances. 
+
+## 4.3 Modelling 
+
+As stated in assessment, aim of modeling is to analyise whether a car is being sold by first owner or not. To select the model for given scenario, explanatory variables are combination of both categorical and numerical type. Dependent variable is categorical where we don’t have normality or constant variance. For these cases, we have *logistic Regression*.  I will start with maximal model and develop a minimal model with *step()* function. 
+
+```{r}
+firstOwner.lr<-glm(cars.df$first_owner~cars.df$brand+cars.df$year+cars.df$mileage+cars.df$engine_size+cars.df$automatic_transmission+cars.df$fuel+cars.df$drivetrain+cars.df$min_mpg+cars.df$max_mpg+cars.df$damaged+cars.df$navigation_system+cars.df$bluetooth+cars.df$third_row_seating+cars.df$heated_seats+cars.df$price, family=binomial)
+summary(firstOwner.lr)
+```
+
+
+The model has only a few significant coefficients including *brand*, *year*, *navigation_system* and *damaged*.
+Model Interpretation is given below  
+$$log(\frac{p}{1-p})=-0.045-0.164 \times \text{brand}- 0.22 \times \text{year} -0.80 \times \text{damaged}-0.75 \times \text{navigation_system}$$
+As plots are not applicable in this scenario, I am designing a maximal logistic regression model with interactions.
+
+
+```{r}
+#firstOwner.max.lr<-glm(cars.df$first_owner~cars.df$brand*cars.df$year*cars.df$mileage*cars.df$engine_size*cars.df$automatic_transmission*cars.df$fuel*cars.df$drivetrain*cars.df$min_mpg*cars.df$max_mpg*cars.df$damaged*cars.df$navigation_system*cars.df$bluetooth*cars.df$third_row_seating*cars.df$heated_seats*cars.df$price, family=binomial)
+
+#
+firstOwner.max.lr<-glm(cars.df$first_owner~cars.df$brand*cars.df$year*cars.df$mileage*cars.df$engine_size, family=binomial)
+summary(firstOwner.max.lr)
+```
+
+There are no significant values. 
+
+
+Developing a minimal model
+```{r}
+summary(step(firstOwner.lr))
+```
+
+This is simpler model with more significant variables than maximal model. I find this model more appropriate and will be using this model for interpretations.
+
+```{r}
+firstOwner.mam.glm<-glm(formula = infection$infected ~ infection$age + infection$weight + 
+    infection$sex + infection$age:infection$weight + infection$age:infection$sex, 
+    family = binomial)
+summary(firstOwner.mam.glm)
+```
+
+The odd ratios is given by
+```{r}
+exp(coef(firstOwner.lr))
+```
+```{r}
+cars<-predict(firstOwner.lr, type="response")
+head(cars.df$pOwner)
+```
+
 
 *The aim of the analysis is to model whether a car is being sold by the first owner or not. (i.e., involving the binary target attribute).*
 *Provide a plan of analysis based on relevant EDA for this attribute. Execute the plan and address any weaknesses of the model and explore methods to improve it (10 marks).* 
