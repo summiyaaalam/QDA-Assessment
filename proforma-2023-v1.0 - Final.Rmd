@@ -1,0 +1,801 @@
+---
+title: "CS5801 Coursework"
+author: '2340875'
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    theme: journal
+    df_print: paged
+    toc: yes
+    toc_float:
+      collapsed: yes
+    pdf_document: default
+    html_notebook: default
+version: 1
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This RMarkdown file is organized into four major sections
+
+0.  Importing Libraries
+1.  Organise and clean the data
+2.  Exploratory Data Analysis
+3.  Modelling numerical dependent variable
+4.  Modelling binary dependent variable
+
+# 0. Importing Libraries
+
+```{r}
+#Loading all the required libraries.
+library(skimr)
+library(tidyverse)
+library(modeest)
+library(validate)
+library(ggplot2)
+library(tree)
+library(dplyr)
+library(ggpubr)
+library(vcdExtra)
+library(MASS)
+```
+
+# 1. Organise and clean the data
+
+This part entails
+
+-   Sub-setting the data into the specific datasets
+-   Data quality analysis plan
+-   Data quality analysis findings
+-   Data Cleaning
+
+## 1.1 Subset the data into the specific dataset allocated
+
+We are provided with used car data. Subsequent code extracts data subset from meta data based on my ID.
+
+```{r}
+# Assigning my Student ID to the SID variable 
+SID <- 2340875                
+SIDoffset <- (SID %% 50) + 1    # SID mod 50 + 1
+
+load("car-analysis-data.Rda")
+
+# Now subset the car data set
+# Pick every 50th observation starting from offset
+# Put into data frame named cars.df
+cars.df <- cars.analysis[seq(from=SIDoffset,to=nrow(cars.analysis),by=50),]
+```
+
+*cars.df* is the resultant data frame. 
+
+## 1.2 Data quality analysis plan
+
+I am primarily focusing on assessing the *validity* of each variable in quality analysis. I have laid out following points to validate the provided data. 
+
+#### Validity Assessment 
+
+Following are the essential characteristics of data.
+
+  - Check and correct the *Data type* of each attribute. 
+  - Inspect variables for *missing values*. Apply imputations for the values. 
+  - Look for *minimum and maximum* values for each column to point-out outliers or discrepancies in data. 
+  - Ensuring or enforcing (if not present) *unique identifier* in cars.df to address each observation.
+  - Observing the affects of imputed values graphically. 
+  
+#### Quality Implementation Plan
+
+To access and validate *cars_df*, I have used *skimr library* for drawing the detailed summary statistics of each variable. Other helpful functions for quality analysis are *table()*, *str()* and *summary()* . Furthermore, *validator()* function is also applied to columns for defining validation rules.
+
+The next part lays out implementation plan.
+
+## 1.3 Data quality analysis findings
+
+As discussed in section 1.2, Lets start with the implementation of quality analysis plan.
+
+```{r}
+# To eyeball the dataframe
+View(cars.df)
+```
+
+```{r}
+#Analysing underlying structure of dataframe 
+str(cars.df)
+```
+
+As evident from output, three of the variables have character datatype and 13 of them are numerical. My first thought here is to change the datatypes of certain columns with numerical and character datatypes.
+
+The changes and discussions are part of section 1.4.
+
+```{r}
+#To specify missing values and outliers 
+cars.df %>% 
+  skim()
+```
+
+
+The first output provides the overall summary of data. The second output show many distributions, including missing and completion rates, mean, and standard deviation. The result shows that overall data has more than 100 missing values. 
+
+Using *table()* function to find out erroneous values of binary variables. 
+
+#### 1.3.1. Brand
+
+```{r}
+#Analysing brand of car
+
+table(cars.df$brand)
+```
+
+
+#### 1.3.2. Automatic Transmission
+
+```{r}
+#Analysing Automatic Transmission of cars
+
+table(cars.df$automatic_transmission)
+```
+
+#### 1.3.3. Fuel
+
+```{r}
+#Analyzing the fuel
+
+table(cars.df$fuel)
+```
+Error: There is spelling mistake and an unkown value. 
+
+#### 1.3.4. Drivetrain
+
+```{r}
+#Analyzing drivetrain
+
+table(cars.df$drivetrain)
+```
+Error: There is an unknown value
+
+#### 1.3.5. Minimum Mpg
+
+```{r}
+#Analyzing min_mpg
+
+table(cars.df$min_mpg)
+```
+Error: Improbable value of 0 mpg. 
+
+#### 1.3.6. Maximum Mpg
+
+```{r}
+#Analyzing max_mpg
+
+table(cars.df$max_mpg)
+```
+Error: Improbable values of 0 and -30 mpg
+
+#### 1.3.7. Damaged
+
+```{r}
+#Analyzing damaged 
+
+table(cars.df$damaged)
+```
+
+#### 1.3.8. First Owner
+
+```{r}
+#Analyzing First Owner
+
+table(cars.df$first_owner)
+```
+
+#### 1.3.9. Navigation System
+
+```{r}
+#Analyzing navigation_system
+
+table(cars.df$navigation_system)
+```
+
+#### 1.3.10. Bluetooth
+
+```{r}
+#Analyzing bluetooth 
+
+table(cars.df$bluetooth)
+```
+
+#### 1.3.11. Third row seating
+
+```{r}
+#Analyzing third_row_seating
+
+table(cars.df$third_row_seating)
+```
+
+#### 1.3.12. Heated Seats
+
+```{r}
+#Analyzing heated_seats
+
+table(cars.df$heated_seats)
+```
+
+## 1.4 Data cleaning
+
+The data inspection in 1.3 revealed many quality and validity concerns. In reference to quality plan (1.2), the findings are discussed here.  
+
+#### Datatype Correction 
+
+Regarding datatypes, one can postulate these changes for both character and numerical attributes of cars.df.  
+
+```{r}
+#changes in datatypes of three character and seven numerical attributes.  
+
+cars.df$brand                   <-  as.factor(cars.df$brand) 
+cars.df$automatic_transmission  <-  as.factor(cars.df$automatic_transmission)
+cars.df$fuel                    <-  as.factor(cars.df$fuel)
+cars.df$drivetrain              <-  as.factor(cars.df$drivetrain)
+cars.df$damaged                 <-  as.factor(cars.df$damaged)
+cars.df$first_owner             <-  as.factor(cars.df$first_owner)
+cars.df$navigation_system       <-  as.factor(cars.df$navigation_system)
+cars.df$bluetooth               <-  as.factor(cars.df$bluetooth)
+cars.df$third_row_seating       <-  as.factor(cars.df$third_row_seating)
+cars.df$heated_seats            <-  as.factor(cars.df$heated_seats)
+```
+
+#### Missing Values
+
+On the subject of missing values, we have plenty in our data (tending to section 1.3). They are imputed as follows.  
+
+For *engine_size*, *min_mpg* and *max_mpg*, I am computing median to replace missing values (Mean has tendency to skew data). 
+
+Note: Though, in this case, there is not a great difference between mean and median values, I still chose median imputation to avoid any biasedness.
+
+Before imputation, 
+```{r}
+hist(cars.df$engine_size)
+hist(cars.df$min_mpg)
+hist(cars.df$max_mpg)
+plot(cars.df$damaged)
+plot(cars.df$first_owner)
+```
+
+```{r}
+#Calculating median and assigning it to the missing values. 
+cars.df$engine_size[is.na(cars.df$engine_size)] <- median(cars.df$engine_size, na.rm = TRUE)
+cars.df$min_mpg[is.na(cars.df$min_mpg)] <- median(cars.df$min_mpg, na.rm = TRUE)
+cars.df$max_mpg[is.na(cars.df$max_mpg)] <- median(cars.df$max_mpg, na.rm = TRUE)
+```
+
+
+*Damaged* and *first_owner* are binary attributes. *Mode* seems like a good option for imputing missing values.
+
+```{r}
+#Imputing values for damaged column
+cars.df$damaged[is.na(cars.df$damaged)] <- mfv(cars.df$damaged, method = "mfv")
+
+#Imputing values for first_owner  column
+cars.df$first_owner[is.na(cars.df$first_owner)] <- mfv(cars.df$first_owner, method = "mfv", na_rm = TRUE)
+```
+
+
+After Imputation, 
+```{r}
+hist(cars.df$engine_size)
+hist(cars.df$min_mpg)
+hist(cars.df$max_mpg)
+plot(cars.df$damaged)
+plot(cars.df$first_owner)
+```
+
+#### Minimum Maximum and Invalid Values 
+
+*Mileage* and *min_mpg* is 0 for two instances. Similarly, *max_mpg* is -30 and 0 in few occurrences. 
+To fix these impossible values, I will comply with the previous technique of median imputation. 
+
+Mileage:
+```{r}
+cars.df$mileage[which(cars.df$mileage == 0)] <- median(cars.df$mileage)
+```
+ 
+Min_mpg:
+```{r}
+cars.df$min_mpg[which(cars.df$min_mpg == 0)] <- median(cars.df$min_mpg)
+```
+
+Max_mpg:
+```{r}
+cars.df$max_mpg[which(cars.df$max_mpg <= 0)] <- median(cars.df$max_mpg)
+```
+
+
+In *fuel* and *drivetrain* column, there is spelling error and an unknown value. Spellings are fixed and unknown values are replaced by mode. 
+
+```{r}
+#Changing the pertol to petrol   
+cars.df$fuel[which(cars.df$fuel == "Pertol")]   <- "Petrol"
+
+#Replacing Unknown value in Fuel with most frequent occurrence 
+cars.df$fuel[which(cars.df$fuel == "Unknown")]  <- mfv(cars.df$fuel, method = "mfv")
+
+#Replacing Unknown value in drivetrain with most frequent occurrence
+cars.df$drivetrain[which(cars.df$drivetrain == "Unknown")]  <- mfv(cars.df$drivetrain, method = "mfv")
+```
+
+There is *unknown level* still present in the data even though it has no value. Lets drop this level from both *fuel* and *drivetrain* columns. 
+
+```{r}
+cars.df$fuel <- droplevels(cars.df$fuel)
+cars.df$drivetrain <- droplevels(cars.df$drivetrain)
+```
+
+
+#### Unique Identifier 
+
+There is already a unique identifier for each row in provided data.
+
+#### Validator 
+
+Defining the rules for each individual column
+
+```{r}
+# Define the rules for {validate}
+# using the `validator()` to store the rules so they can be used more than once.
+
+car.rules <- validator( okBrand = is.element(brand,c("Alfa","Audi","BMW", "Cadillac", "Chevrolet", "FIAT", "Ford", "Honda", "Hyundai", "Jaguar", "Jeep", "Kia", "Land", "Lexus", "Maserati", "Mazda", "Mercedes-Benz", "MINI", "Mitsubishi", "Nissan", "Porsche", "Suzuki", "Toyota", "Volkswagen", "Volvo")),
+                        okYear = year > 1990 && year < 2024,
+                        MinMileage = mileage >= 100,
+                        NonNegEngineSize = engine_size >= 0,
+                        BoolAutoTransmission = automatic_transmission == 0 || automatic_transmission == 1, 
+                        okFuel = is.element(fuel, c("Diesel", "Electric", "GPL", "Hybrid", "Petrol")),
+                        okDriveTrain = is.element(drivetrain, c("Four-wheel Drive", "Front-wheel Drive", "Rear-wheel Drive")),
+                        NonNegMinMileage = min_mpg >= 10,
+                        NonNegMaxMileage = max_mpg >= 15,
+                        Booldamaged = damaged == 0 || damaged == 1, 
+                        BoolOwner = first_owner == 0 || first_owner == 1,
+                        BoolNavSys = navigation_system == 0 || navigation_system == 1,
+                        BoolBluetooth = bluetooth == 0 || bluetooth == 1, 
+                        BoolSeating = third_row_seating == 0 || third_row_seating == 1,
+                        BoolSeats = heated_seats == 0 || heated_seats == 1,
+                        NonZeroPrice = price >= 0)
+```
+
+Now applying these rules to *cars.df*.
+
+```{r}
+qual.check <- confront(cars.df,car.rules)
+summary(qual.check)
+```
+
+Checking the rules graphically.
+
+```{r}
+plot(qual.check, xlab = "")
+```
+
+Data complies with the defined rules. 
+
+# 2. Exploratory Data Analysis (EDA)
+
+Exploratory data analysis involves further exploration and visualization of data. Up to this point,  I am familiar with 
+
+  - Dimensions of cars.df
+  - Missing data points in cars.df
+  - Data types of all 16 variables 
+
+## 2.1 EDA plan
+
+As a part of exploratory data analysis, my goal is to unveil following basic EDA questions
+
+  •	How much variation is within each variable of cars.df? 
+  •	How much covariation exists between dependent and independent variables of cars.df?   
+  
+I will answer both questions using statistical and graphical techniques. A part of EDA is identification of outliers and missing values, some of these issues have already been handled in previous section.
+
+#### Statistical Approach 
+
+For this part, I will use *summary()* for basic data exploration. In order to answer both aforementioned questions using descriptive approach, I will use *var()*,  *cov()*, and *describe()* methods for both numerical and categorical attributes. 
+
+#### Graphical Approach
+
+For visual aid, I have plenty of tools at disposal. For start, I will use histogram and barplots to visualize individual columns. Price is dependent variable in cars.df. It is important to visualize its covariance or relation with other dependent variables. Multi-plots (scatter, density, ggplot and heatmaps) will be employed to identify underlying patterns and dependencies. 
+
+In section 2.2, I have applied exploratory methods to cars.df. Their results and finding are discussed in section 2.3 and 2.4. 
+
+## 2.2 EDA execution
+
+### 2.2.1 Statistical Exploration 
+
+Following the statistical approach, each column statistics are provided below using *summary()* function.
+
+```{r}
+summary(cars.df)
+```
+There are no discrepancies to address. Lets find the correlation of numerical variables.
+
+```{r}
+#correlation between numerical independent variables with price 
+cor(cars.df[, c("price", "engine_size", "year", "mileage", "min_mpg", "max_mpg")])
+```
+
+Among the attributes, highest correlation exists between *min_mpg* and *max_mpg* with positive value of 0.74. The lowest correlation is of value 0.0002 between *max_mpg* and *year*.
+
+### 2.2.2 Graphical Exploration
+
+For visual representation of data, first step is to plot for individual columns.
+
+#### 2.2.2.1 Individual Variable Plots
+
+```{r}
+#Distribution plots and QQ-plots for all numerical variables
+
+hist(cars.df$year,xlab="Year",ylab="Count",main="Distribution of car years", col=rgb(0.2,0.4,0.6,0.6))
+qqnorm(cars.df$year, pch = 1, frame = FALSE)
+qqline(cars.df$year, col = "steelblue", lwd = 2)
+
+hist(cars.df$mileage,xlab="Mileage",ylab="Count",main="Distribution of car mileage", col=rgb(0.2,0.4,0.6,0.6))
+qqnorm(cars.df$mileage, pch = 1, frame = FALSE)
+qqline(cars.df$mileage, col = "steelblue", lwd = 2)
+
+hist(cars.df$engine_size,xlab="Engine Size",ylab="Count",main="Distribution of engine size", col=rgb(0.2,0.4,0.6,0.6))
+qqnorm(cars.df$engine_size, pch = 1, frame = FALSE)
+qqline(cars.df$engine_size, col = "steelblue", lwd = 2)
+
+hist(cars.df$min_mpg,xlab="Minimum Mpg",ylab="Count",main="Distribution of Minimum Mpg", col=rgb(0.2,0.4,0.6,0.6))
+qqnorm(cars.df$min_mpg, pch = 1, frame = FALSE)
+qqline(cars.df$min_mpg, col = "steelblue", lwd = 2)
+
+hist(cars.df$max_mpg,xlab="Maximum Mpg",ylab="Count",main="Distribution of Maximum Mpg", col=rgb(0.2,0.4,0.6,0.6))
+qqnorm(cars.df$max_mpg, pch = 1, frame = FALSE)
+qqline(cars.df$max_mpg, col = "steelblue", lwd = 2)
+
+hist(cars.df$price,xlab="Price",ylab="Count",main="Distribution of Price", col=rgb(0.2,0.4,0.6,0.6))
+qqnorm(cars.df$price, pch = 1, frame = FALSE)
+qqline(cars.df$price, col = "steelblue", lwd = 2)
+```
+My goal is to postulate the variance and normality from above graphs. *year* is positively skewed, *mileage* and *engine_size* are negatively skewed. *min_mpg*, *max_mpg* and *price* have normal distribution to some degree. 
+
+```{r}
+#Individual attribute bar charts for categorical Variables
+
+barplot(table(cars.df$brand), ylab = "Frequency", xlab = "Brand", col="black", main = "Car Brands")
+ 
+barplot(table(cars.df$automatic_transmission), ylab = "Frequency", xlab = "Automatic Transmission", col="black", main = "Automatic Transmission of cars")
+
+barplot(table(cars.df$fuel), ylab = "Frequency", xlab = "Fuel", col = "black", main = "Fuel")
+
+barplot(table(cars.df$drivetrain), ylab = "Frequency", xlab = "Drive Train", col= "black", main="Drivetrain")
+
+barplot(table(cars.df$damaged), ylab = "Frequency", xlab = "Damaged Cars", col="black", main = "Damaged cars")
+
+barplot(table(cars.df$first_owner), ylab = "Frequency", xlab = "First Owner", col="black", main = "First Owner")
+
+barplot(table(cars.df$navigation_system), ylab = "Frequency", xlab = "Navigation System", col="black", main = "Navigation System")
+
+barplot(table(cars.df$bluetooth), ylab = "Frequency", xlab = "Bluetooth", col="black", main = "Bluetooth")
+
+barplot(table(cars.df$third_row_seating), ylab = "Frequency", xlab = "Third Row Seating", col="black", main = "Third Row Seating")
+
+barplot(table(cars.df$heated_seats), ylab = "Frequency", xlab = "Heated Seats", col="black", main = "Heated Seats")
+```
+
+#### 2.2.2.2 Multi-Variate Plots
+
+```{r}
+#Visualizing relation between numerical dependent variable and numerical independent variables. 
+
+ggplot(cars.df, aes(x=brand, y=price)) + geom_point() + ggtitle("Price according to the car brand") + theme(axis.text.x = element_text(angle = 90))    
+
+ggplot(cars.df, aes(x=year, y=price)) + geom_point() + ggtitle("Price according to production year of cars")
+
+ggplot(cars.df, aes(x=mileage, y=price)) + geom_point( ) + ggtitle("Price according to the car mileage")
+
+ggplot(cars.df, aes(x=engine_size, y=price)) + geom_point( ) + ggtitle("Price as per engine size of cars")
+
+ggplot(cars.df, aes(x=min_mpg, y=price)) + geom_point( ) + ggtitle("Price according to min_mpg")
+
+ggplot(cars.df, aes(x=max_mpg, y=price)) + geom_point( ) + ggtitle("Price according to max_mpg")
+```
+
+
+```{r}
+# Boxplots of independent categorical variables affecting the price of car  
+
+ggplot(cars.df, aes(x=automatic_transmission, y=price)) + geom_boxplot(fill="gray") + theme_classic() + labs(title="Box Plot of Automatic transmission with price") + coord_flip()
+
+ggplot(cars.df, aes(x=fuel, y=price)) + geom_boxplot(fill="gray") + theme_classic() + labs(title="Box Plot of fuel and price") + coord_flip()
+
+ggplot(cars.df, aes(x=drivetrain, y=price)) + geom_boxplot(fill="gray") + theme_classic() + labs(title="Box Plot of drivetrain with price") + coord_flip()
+
+ggplot(cars.df, aes(x=damaged, y=price)) + geom_boxplot(fill="gray") + theme_classic() + labs(title="Box Plot of damaged car with price ") + coord_flip()
+
+ggplot(cars.df, aes(x=first_owner, y=price)) + geom_boxplot(fill="gray") + theme_classic() + labs(title="Box Plot of first_owner with price ") + coord_flip()
+
+ggplot(cars.df, aes(x=navigation_system, y=price)) + geom_boxplot(fill="gray") + theme_classic() + labs(title="BBox Plot of navigation system with price ") + coord_flip()
+
+ggplot(cars.df, aes(x=bluetooth, y=price)) + geom_boxplot(fill="gray") + theme_classic() + labs(title="Box Plot of bluetooth with price ") + coord_flip()
+
+ggplot(cars.df, aes(x=third_row_seating, y=price)) + geom_boxplot(fill="gray") + theme_classic() + labs(title="Box Plot of third row seating with price ") + coord_flip()
+
+ggplot(cars.df, aes(x=heated_seats, y=price)) + geom_boxplot(fill="gray") + theme_classic() + labs(title="Box Plot of heated seats with price ") + coord_flip()
+```
+
+The findings are in later section (2.3). 
+
+## 2.3 EDA summary of results
+
+To summarize the plots from section 2.2, I have devised set of questions to streamline the summary of my findings. 
+
+**Question 1. By looking at the distributions, point out the outlier (if exist). **
+*mileage*, *min_mpg*, *max_mpg*, *automatic_transmission* and *third_row_seating* seem to have outliers. 
+
+**Question 2. While exploring the variables, are there any surprising values? **
+From my computations and visualizations, I don’t seem to find any abnormal values in data anymore. 
+
+**Question 3. Which year has most and least production of cars? **
+From histogram, year 2015 to 2020 has most production of cars while 1995 to 2000 are years for the least car production. 
+
+**Question 4. Can u concur that car price is increased if the mileage is less? **
+If I observe the graph of *mileage* and *car price*, it does seem like the case as the scatter plot is negatively skewed. 
+To confirm this, I can run correlation test.
+The hypothesis will be $H_0: \rho=0$ vs $H_1:\rho \ne 0$
+
+```{r}
+#correlation test for mileage (independent variable) and price (dependent Variable)
+cor.test(cars.df$mileage , cars.df$price )
+```
+As p-value is very small, I can reject the null hypothesis. Thus, Mileage and car price are negatively correlated. 
+
+**Question 5. Is there a relation between first_owner and price? **
+
+From visualizations, I can tell that there might be some kind of relation between them but to be certain I will run a hypothesis test.
+The hypothesis will be $H_0: \rho=0$ vs $H_1:\rho \ne 0$
+
+```{r}
+#t test for continuous and categorical variable 
+t.test(cars.df$price~cars.df$first_owner)
+```
+As p-value is very small, I can conclude that*first_owner* and car *price* are related. 
+
+**Question 6. Does maximum mpg affect the price of car?**
+
+I will first consult the plots but I cannot work out any result. I will go for hypothesis testing. 
+The hypothesis will be $H_0: \rho=0$ vs $H_1:\rho \ne 0$
+
+```{r}
+#correlation test for two continuous variables 
+
+cor.test(cars.df$max_mpg , cars.df$price )
+```
+As p-value is very small, it can safely be deduced that *max_mpg* has effect on car *price*.
+
+## 2.4 Additional insights and issues
+
+**If qualities of expensive cars can be defined from provided data?**
+To answer the question, I will refer to the correlation matrix computed in section 2.2.1. With *price*, highly correlated variables are *mileage* (-0.62) and *year* (0.60). 
+To see the effect of categorical values on price, I have used ANOVA model. 
+
+```{r}
+summary(aov(cars.df$price~cars.df$brand))
+summary(aov(cars.df$price~cars.df$automatic_transmission))
+summary(aov(cars.df$price~cars.df$fuel))
+summary(aov(cars.df$price~cars.df$drivetrain))
+summary(aov(cars.df$price~cars.df$damaged))
+summary(aov(cars.df$price~cars.df$first_owner))
+summary(aov(cars.df$price~cars.df$navigation_system))
+summary(aov(cars.df$price~cars.df$bluetooth))
+summary(aov(cars.df$price~cars.df$third_row_seating))
+summary(aov(cars.df$price~cars.df$heated_seats))
+```
+
+Most expensive cars have low mileage with latest production year. Choosing the expensive *brand* with *automatic transmission*, having sold by *first owner*, *bluetooth*, *heated seating*, *no damage* and *navigation system* directly increases the car’s cost.   
+
+### Multi-collinearity 
+
+*max_mpg* and *min_mpg* are highly correlated that allows me to choose only *max_mpg* for doing regressions analysis.
+
+```{r}
+#correlation for two continuous variables 
+
+cor(cars.df$max_mpg , cars.df$min_mpg )
+``` 
+
+# 3. Modelling
+
+## 3.1 Explain your analysis plan
+
+The goal in this section is to develop an optimal model for cars’ *prices*.
+
+Identification and imputation of missing values directly affect the model. Cleaning and imputation in section one is performed with justifications. The Exploratory data analysis is carried out keeping in view *price* as a dependent variable and developing its understanding relating to other independent variables. 
+
+To design model for given data, the explanatory variables are mix of both categorical and numerical types while the dependent variable is continuous numerical. *ANCOVA* deals with these kinds of variables. I will use *step()* function to achieve minimal adequate model. Before modeling, it is important to make sure that dependent variable is free of errors and normality issues. The graph in EDA shows that *price* complies with the said expectations.  
+
+Section 3.2 has implementation of described model. The results are discussed in section 3.3. The improvements upon those results are part of section 3.4.
+
+## 3.2 Build a model for car price
+
+```{r}
+#Maximal ANCOVA Model for pricing of used cars 
+
+ancova.price<-lm(cars.df$price~cars.df$brand+cars.df$year+cars.df$mileage+cars.df$engine_size+cars.df$automatic_transmission+cars.df$fuel+cars.df$drivetrain+cars.df$min_mpg+cars.df$max_mpg+cars.df$damaged+cars.df$first_owner+cars.df$navigation_system+cars.df$bluetooth+cars.df$third_row_seating+cars.df$heated_seats)
+summary(ancova.price)
+```
+
+The output shows the influence of each level on car’s *price*. The significant and non-significant attributes are depicted in the summary. 
+
+Overall, the model is significant. $r^2$ value is relatively closer to 1 (0.77), portraying that *price* is a substantial coefficient for developing this model. F-value 29.4 indicates that difference in mean values is greater among variables.
+
+```{r}
+plot(ancova.price)
+```
+Overall, except a hint of heteroscedasticity, the plots do not raise any other concerns. 
+
+To improve upon results, I will use *step()*.
+```{r}
+ancova.price.min <- step(ancova.price)
+summary(ancova.price.min)
+```
+
+The model is significant. 
+
+```{r}
+plot(ancova.price.min)
+```
+
+These results are discussed in next section.
+
+## 3.3 Critique model using relevant diagnostics
+
+#### Maximal Adequate model summary
+The result summarizes the positive and negative correlation of all levels (total 42) present in the data with the intercept. 
+Looking at the p-values of coefficients, only a few among them are significant (p-values < 0.05). It is worth noticing most of the independent variables (non-significant instances) failed to explain the variability against response variable. 
+Nevertheless, as per summary stats, the overall model is *significant* evident by the p-value of 2.2e-16. The value of $r^2$ is more than 70%, so model is relatively good at describing variations. For maximal model, F-value is 29.34 showing that mean variation is high among participating variables. 
+
+#### Diagnostic plots 
+
+These plots do not show grave concerns.  As a mild criticism, I feel like residual vs fitted plot has more concentration and spread of scatter on right side which can be a sign of possible heteroscedasticity. QQ residual plot shows a straight line.
+
+#### Minimal Adequate Model Summary 
+
+The results are almost same as that of maximal model.  
+
+## 3.4 Suggest and implement improvements to your model
+
+Though there is not a very distinguishable pattern but one can identify a hint of heteroscedasticity in the plots. 
+
+In order to implement an improvement, I would apply *log transformation* to the dependent variable thereby changing the configurations of whole model.
+*min_mpg* is also dropped from the model. 
+
+```{r}
+#Applying the transformed response variable on ANCOVA model with maximal approach. 
+
+ancova.price.lg<-lm(log(cars.df$price)~cars.df$brand+cars.df$year+cars.df$mileage+cars.df$engine_size+cars.df$automatic_transmission+cars.df$fuel+cars.df$drivetrain+cars.df$max_mpg+cars.df$damaged+cars.df$first_owner+cars.df$navigation_system+cars.df$bluetooth+cars.df$third_row_seating+cars.df$heated_seats)
+summary(ancova.price.lg)
+```
+
+This logarithmic transformation has noticeable impact on results. The summary suggests a significant p-value with 41.91 F-statistic showing that the mean difference between variables is much more than both of previous maximal and minimal models (section 3.2). Another discernible refinement in model is $r^2$. It shows that variations caused in response variable by explanatory variables are now greater than 80% making it an optimal choice than previous model. 
+
+```{r}
+#Diagnostics Plot
+plot(ancova.price.lg)
+```
+
+These plots comply with the improvements discussed with summary statistics. The spread of residuals vs fitted plot is pretty much contained.
+
+Developing the minimal transformed model 
+
+```{r}
+ancova.price.lg.min <- step(ancova.price.lg)
+summary(ancova.price.lg.min)
+```
+
+Given the statistics, minimal model has the same value of $r^2$. The only difference I can see is increment in F-value statistic (which is 50.7). The more important measure is p-value which remains significant in minimal model too.  
+
+```{r}
+#diagnostics plot for Minimal Model
+plot(ancova.price.lg.min)
+```
+These plots show no major changes.
+
+# 4. Modelling another dependent variable
+
+## 4.1 Model the likelihood of a car being sold by the first owner (using the first_owner variable provided).
+
+The aim of this section is to use categorical response variable (i.e., *first_owner*) against independent variables. 
+Before directly applying the model, lets do some exploratory data analysis. 
+
+## 4.2 EDA Plan, Analysis and summary
+
+The statistical and graphical exploratory analysis for individual variables has been covered in section 2.2. In this subsection, I will be focusing on multi-variate exploration keeping in view the *first_owner* as the dependent variable. 
+
+```{r}
+#Looking at first_owner    
+ggplot(cars.df, aes(x=cars.df$first_owner)) + geom_bar()
+```
+Cars sold by first owner are slightly more than otherwise. 
+
+The question I am going to address in this section is *Can I describe the qualities of cars that are being sold by first owner? *
+To look into the answer, I will find relation of independent variables with dependent variable. 
+
+```{r}
+#chisq.test for first_owner with following categorical variables 
+
+chisq.test(table(cars.df$brand, cars.df$first_owner), simulate.p.value=TRUE)
+chisq.test(table(cars.df$automatic_transmission, cars.df$first_owner), simulate.p.value=TRUE)
+chisq.test(table(cars.df$fuel, cars.df$first_owner), simulate.p.value=TRUE)
+chisq.test(table(cars.df$drivetrain, cars.df$first_owner), simulate.p.value=TRUE)
+chisq.test(table(cars.df$damaged, cars.df$first_owner), simulate.p.value=TRUE)
+chisq.test(table(cars.df$navigation_system, cars.df$first_owner), simulate.p.value=TRUE)
+chisq.test(table(cars.df$bluetooth, cars.df$first_owner), simulate.p.value=TRUE)
+chisq.test(table(cars.df$third_row_seating, cars.df$first_owner), simulate.p.value=TRUE)
+chisq.test(table(cars.df$heated_seats, cars.df$first_owner), simulate.p.value=TRUE)
+```
+
+According the p-values, *first_owner* is correlated with *brand*, *automatic_transmission*, *damaged* cars, *Bluetooth*, *third_row_seating* and *heated_seats*.  The summary shows that *fuel* and *navigation system* are not affecting the first car ownership.  
+To conceptualize the effect of numerical independent variables with *first_owner*, I have devised boxplots
+
+```{r}
+#Boxplots with independent continuous variable vs First Owner 
+
+ggplot(cars.df, aes(x=year, y=first_owner)) + geom_boxplot(fill="gray") + theme_classic() + labs(title="Box Plot of production year with first owner") 
+ggplot(cars.df, aes(x=mileage, y=first_owner)) + geom_boxplot(fill="gray") + theme_classic() + labs(title="Box Plot of mileage with first owner") 
+ggplot(cars.df, aes(x=engine_size, y=first_owner)) + geom_boxplot(fill="gray") + theme_classic() + labs(title="Box Plot of engine size with first owner") 
+ggplot(cars.df, aes(x=min_mpg, y=first_owner)) + geom_boxplot(fill="gray") + theme_classic() + labs(title="Box Plot of min mpg with first owner") 
+ggplot(cars.df, aes(x=max_mpg, y=first_owner)) + geom_boxplot(fill="gray") + theme_classic() + labs(title="Box Plot of max mpg with first owner") 
+ggplot(cars.df, aes(x=price, y=first_owner)) + geom_boxplot(fill="gray") + theme_classic() + labs(title="Box Plot of price with first owner") 
+
+```
+
+There is a noticeable difference in *median* for production *year*, *mileage* and *price* of cars by the *first_owner*. There is slight difference with *engine_size*. For *min* and *max_mpg*, medians are the same. 
+I will use a tree to understand the effect of variables on *first_owner*. 
+
+```{r}
+cars.tree<-tree(cars.df$first_owner~., data = cars.df)
+plot(cars.tree)
+text(cars.tree)
+```
+
+Top of the tree has *year* which means it has most impact of all on *first_owner*.
+
+By looking at the correlation values and graphs, we can presume that cars sold by first owner are relatively latest (*year* of production), with certain *brands*, have *automatic_transmission*, *drivetrain*, *Bluetooth*, *third_row_seating* and *heated_seats*. The *damage* to car is also relevant to the first owner.    
+
+## 4.3 Modelling 
+
+The aim of model is to analyise whether a car is being sold by first owner or not. To select the model, explanatory variables are combination of both categorical and numerical type. Dependent variable is categorical. For these cases, we have *logistic Regression*. I will start with maximal model and develop a minimal model with *step()* function. 
+
+```{r}
+firstOwner.lr<-glm(cars.df$first_owner~cars.df$brand+cars.df$year+cars.df$mileage+cars.df$engine_size+cars.df$automatic_transmission+cars.df$fuel+cars.df$drivetrain+cars.df$min_mpg+cars.df$max_mpg+cars.df$damaged+cars.df$navigation_system+cars.df$bluetooth+cars.df$third_row_seating+cars.df$heated_seats+cars.df$price, family=binomial)
+summary(firstOwner.lr)
+```
+
+
+The model has only a few significant coefficients including *brand*, *year*, *navigation_system* and *damaged*.
+Model is Interpreted as  
+$$log(\frac{p}{1-p})=-0.045-0.164 \times \text{brand}- 0.22 \times \text{year} -0.80 \times \text{damaged}-0.75 \times \text{navigation_system}$$
+
+Developing a minimal model
+```{r}
+firstOwner.lr.min <- step(firstOwner.lr)
+summary(firstOwner.lr.min)
+```
+Residual variance is lower than NULL deviance. AIC value looks fine too.  
+
+For further interpretations, odd ratio is given by 
+```{r}
+exp(coef(firstOwner.lr.min))
+```
+The odds of having *first_owner* increases by 
+
+  - factor of 1.2 when production year is latest
+  - factor of 2.2 when there is third row seating 
+  - factor of 1.0 with cars prices.
+
+#### Critique 
+With the help of *step()* function, I am able to abate unnecessary variables in LR model with *first_owner* as a dependent variable. Most of the data in cars.df is deemed insignificant with the response variable *first_owner*. I think *first_owner* is not the best option to analyise the data. Referring to previous section, affect and relevance of *price* is far greater than *first_owner* on cars.df. 
+
+# References
+
+1. https://rpubs.com/ranydc/rmarkdown_themes (For selecting the theme of rmarkdown file)
